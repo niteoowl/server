@@ -1,9 +1,10 @@
 {
   "name": "langvid-api",
   "version": "1.0.0",
+  "type": "module",
   "dependencies": {
     "youtube-transcript": "^1.0.6",
-    "cors": "^2.8.5",
-    "node-fetch": "^3.3.1"
+    "node-fetch": "^3.3.1",
+    "cors": "^2.8.5"
   }
 }
