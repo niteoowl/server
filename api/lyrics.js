@@ -1,23 +1,25 @@
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+import fetch from 'node-fetch';
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
     const { title } = req.query;
-    if (!title) return res.status(400).json({ error: "title이 필요합니다." });
+
+    if (!title) {
+        return res.status(400).json({ error: "title is required" });
+    }
 
     try {
-        // LRCLIB API 호출
-        const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(title)}`;
-        const response = await fetch(searchUrl);
+        const response = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(title)}`);
         const data = await response.json();
-        
-        if (data && data.length > 0) {
-            res.status(200).json(data[0]); // 가장 연관성 높은 첫 번째 가사 반환
-        } else {
-            res.status(404).json({ error: "가사를 찾을 수 없습니다." });
-        }
-    } catch (e) {
-        res.status(500).json({ error: "가사 서버 연결 실패" });
+        return res.status(200).json(data);
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
     }
-};
+}
