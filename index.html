@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Langvid - 언어 학습 대시보드</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="home-body">
+    <div class="home-layout">
+        <!-- Dashboard Sidebar -->
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-user">
+                <div class="user-avatar">🧑‍💻</div>
+                <div class="user-name">Welcome Back</div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-item active">🏠 Home</a>
+                <a href="#" class="nav-item">📚 My Library</a>
+                <a href="#" class="nav-item" id="nav-words">⭐ Starred Words</a>
+                <a href="#" class="nav-item">📊 Reports</a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button class="btn-ghost">⚙️ Settings</button>
+            </div>
+        </aside>
+
+        <!-- Main Dashboard Content -->
+        <main class="dashboard-main">
+            <header class="dashboard-header">
+                <div class="header-breadcrumb">Pages / Home</div>
+                <div class="header-tools">
+                    <button id="quick-import" class="btn-blue">➕ Quick Import</button>
+                </div>
+            </header>
+
+            <section class="hero-section">
+                <h1>📽️ Learn with Content</h1>
+                <p>Turn any YouTube video into an interactive language lesson.</p>
+                
+                <div class="import-bar">
+                    <input type="text" id="yt-url-input" placeholder="Paste YouTube link here (e.g., https://youtube.com/...)">
+                    <button id="start-learn-btn" class="btn-blue">Start Learning</button>
+                </div>
+            </section>
+
+            <section class="gallery-section">
+                <div class="section-title">
+                    <h3>🎬 Recommended Lessons</h3>
+                </div>
+                <div class="video-grid">
+                    <!-- Demo Lesson Card 1 -->
+                    <div class="video-card" data-vid="bcpkHaiG2io">
+                        <div class="card-thumb">
+                            <img src="https://img.youtube.com/vi/bcpkHaiG2io/maxresdefault.jpg" alt="Video Thumbnail">
+                        </div>
+                        <div class="card-info">
+                            <div class="card-title">English Listening - Joe Rogan</div>
+                            <div class="card-meta">20m • Intermediate</div>
+                        </div>
+                    </div>
+                    <!-- Demo Lesson Card 2 -->
+                    <div class="video-card" data-vid="dQw4w9WgXcQ">
+                        <div class="card-thumb">
+                            <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg" alt="Video Thumbnail">
+                        </div>
+                        <div class="card-info">
+                            <div class="card-title">Classic English - Pop Culture</div>
+                            <div class="card-meta">3m • Beginner</div>
+                        </div>
+                    </div>
+                    <!-- Demo Lesson Card 3 -->
+                    <div class="video-card" data-vid="jNQXAC9IVRw">
+                        <div class="card-thumb">
+                            <img src="https://img.youtube.com/vi/jNQXAC9IVRw/maxresdefault.jpg" alt="Video Thumbnail">
+                        </div>
+                        <div class="card-info">
+                            <div class="card-title">Daily Vlog - Living in Japan</div>
+                            <div class="card-meta">12m • Advanced</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="recent-words">
+                <div class="section-title">
+                    <h3>⭐ Recent Vocabulary</h3>
+                </div>
+                <div id="home-words-list" class="words-mini-grid">
+                    <!-- Quick list of saved words -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Hidden input for URL parsing helper -->
+    <script>
+        document.getElementById('start-learn-btn').onclick = () => {
+            const urlInput = document.getElementById('yt-url-input').value;
+            if (urlInput) {
+                // Simplified extraction logic for the demo page
+                window.location.href = `learn.html?v=${escape(urlInput)}`;
+            } else {
+                window.location.href = `learn.html`;
+            }
+        };
+        
+        // Make cards clickable
+        document.querySelectorAll('.video-card').forEach(card => {
+            card.onclick = () => {
+                const vid = card.dataset.vid;
+                window.location.href = `learn.html?v=${vid}`;
+            }
+        });
+
+        // Populate recent words from local storage
+        document.addEventListener('DOMContentLoaded', () => {
+            const words = JSON.parse(localStorage.getItem('langvid_words')) || [];
+            const list = document.getElementById('home-words-list');
+            if (words.length > 0) {
+                words.slice(0, 4).forEach(w => {
+                    const div = document.createElement('div');
+                    div.className = 'word-tag';
+                    div.innerHTML = `<span>${w.word}</span> <small>${w.translation}</small>`;
+                    list.appendChild(div);
+                });
+            } else {
+                list.innerHTML = '<p class="empty-text">No saved words yet.</p>';
+            }
+        });
+    </script>
+</body>
+</html>
