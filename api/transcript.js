@@ -1,30 +1,39 @@
 const { YoutubeTranscript } = require('youtube-transcript');
 
 module.exports = async (req, res) => {
-    // 1. 모든 도메인(Origins)에서 접속할 수 있도록 허용
+    // 1. 모든 접속 허용 (CORS 설정)
     res.setHeader('Access-Control-Allow-Origin', '*');
-    // 2. 허용할 메서드 (GET뿐만 아니라 브라우저가 미리 묻는 OPTIONS도 추가)
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    // 3. 허용할 헤더 설정
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // [핵심 추가] 브라우저가 "연결해도 돼?"라고 미리 묻는(Preflight) 요청 처리
+    // 2. 브라우저의 사전 확인(OPTIONS) 요청 시 즉시 응답
     if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+        return res.status(200).end();
     }
 
     const { videoId } = req.query;
 
+    // 3. videoId가 없을 때 서버가 터지지 않게 방어
     if (!videoId) {
-        return res.status(400).json({ error: "videoId가 필요합니다." });
+        return res.status(400).json({ error: "videoId 파라미터가 필요합니다. (?videoId=ID)" });
     }
 
     try {
+        console.log("자막 추출 시작:", videoId);
+        // 4. 자막 추출 시도
         const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-        res.status(200).json(transcript);
+        
+        if (!transcript || transcript.length === 0) {
+            return res.status(404).json({ error: "해당 영상에 자막이 없습니다." });
+        }
+
+        return res.status(200).json(transcript);
     } catch (e) {
-        // 에러 발생 시에도 CORS 헤더가 유지되도록 설정 (위에서 이미 설정됨)
-        res.status(500).json({ error: "자막을 찾을 수 없거나 추출에 실패했습니다." });
+        console.error("자막 추출 에러:", e.message);
+        // 5. 에러 발생 시 500 에러와 함께 메시지 전달 (서버 크래시 방지)
+        return res.status(500).json({ 
+            error: "유튜브 자막을 가져오는 데 실패했습니다.",
+            details: e.message 
+        });
     }
 };
