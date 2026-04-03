@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "main": "api/transcript.js",
   "dependencies": {
-    "youtube-transcript": "^1.2.1"
+    "youtube-transcript-api": "^3.0.6"
   }
 }
