@@ -21,13 +21,17 @@ module.exports = async (req, res) => {
     try {
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         
-        // 2. 유튜브 정보 가져오기 (쿠키 주입)
-        // Vercel Settings > Environment Variables에 YOUTUBE_COOKIE 이름으로 쿠키를 넣으세요.
+        // 2. 유튜브 정보 가져오기 (강력한 브라우저 모사 헤더 추가)
         const info = await ytdl.getInfo(videoUrl, {
             requestOptions: {
                 headers: {
-                    'Cookie': process.env.YOUTUBE_COOKIE || '', 
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    'Cookie': process.env.YOUTUBE_COOKIE || '',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'x-youtube-client-name': '1',
+                    'x-youtube-client-version': '2.20240328.01.00'
                 }
             }
         });
@@ -46,7 +50,7 @@ module.exports = async (req, res) => {
         const response = await fetch(selectedTrack.baseUrl + '&fmt=json3');
         const data = await response.json();
 
-        // 5. 프론트엔드에서 쓰기 편하게 포맷 정리
+        // 5. 자막 데이터 포맷 정리
         const transcript = data.events
             .filter(event => event.segs)
             .map(event => ({
@@ -60,11 +64,10 @@ module.exports = async (req, res) => {
     } catch (error) {
         console.error("Final Error:", error.message);
         
-        // 에러가 나도 JSON으로 응답해서 브라우저 CORS 오해 방지
         return res.status(500).json({ 
             error: "자막 추출 실패", 
             reason: error.message,
-            tip: "쿠키가 만료되었는지 확인하거나 Vercel Region을 변경해보세요."
+            tip: "1. Vercel Region을 Seoul로 변경 2. 쿠키 재확인 3. Redeploy 실행"
         });
     }
 };
