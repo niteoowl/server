@@ -1,7 +1,8 @@
-const { YoutubeTranscript } = require('youtube-transcript');
+// 라이브러리 불러오기
+const TranscriptClient = require('youtube-transcript-api').default;
 
 module.exports = async (req, res) => {
-    // 1. CORS 및 응답 헤더 설정
+    // CORS 헤더 설정
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -9,36 +10,42 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     const { videoId } = req.query;
-    if (!videoId) {
-        return res.status(400).json({ error: "videoId가 필요합니다." });
-    }
+    if (!videoId) return res.status(400).json({ error: "videoId가 필요합니다." });
 
     try {
-        // 2. 자막 추출 시도 (언어 강제 설정 없이 기본으로 먼저 시도)
-        const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+        // 1. 클라이언트 생성 (보내주신 문서의 User-Agent 활용)
+        const client = new TranscriptClient({
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36"
+            }
+        });
 
-        if (!transcript || transcript.length === 0) {
-            throw new Error("자막 데이터를 찾을 수 없습니다.");
+        // 2. 초기화 대기 (문서에 필수라고 되어 있음)
+        await client.ready;
+
+        // 3. 자막 가져오기
+        const data = await client.getTranscript(videoId);
+
+        // 4. 데이터 구조가 "tracks" 안에 있으므로 포맷 정리
+        // 이 라이브러리는 tracks[0].transcript 안에 start, dur, text가 들어있습니다.
+        if (!data.tracks || data.tracks.length === 0) {
+            return res.status(404).json({ error: "자막이 없는 영상입니다." });
         }
 
-        // 3. 데이터 포맷 정리 (클라이언트가 쓰기 편하게 변환)
-        const formattedTranscript = transcript.map(item => ({
-            start: item.offset / 1000,
-            duration: item.duration / 1000,
+        const rawTranscript = data.tracks[0].transcript;
+        const formattedTranscript = rawTranscript.map(item => ({
+            start: parseFloat(item.start),
+            duration: parseFloat(item.dur),
             text: item.text
         }));
 
         return res.status(200).json(formattedTranscript);
 
     } catch (error) {
-        // 4. 에러 발생 시 서버가 죽지 않게 로그 출력 후 JSON 반환
-        console.error("Transcript Fetch Error:", error.message);
-        
+        console.error("New API Error:", error.message);
         return res.status(500).json({ 
             error: "자막 추출 실패", 
-            reason: error.message,
-            videoId: videoId,
-            tip: "영상에 자막(CC) 설정이 있는지 확인하거나 잠시 후 다시 시도하세요."
+            reason: error.message 
         });
     }
 };
