@@ -1,9 +1,6 @@
 {
-  "name": "server-ruby",
-  "version": "1.0.0",
-  "main": "api/transcript.js",
   "dependencies": {
-    "@distube/ytdl-core": "^4.15.1",
+    "youtube-transcript": "^1.2.1",
     "node-fetch": "^2.6.7"
   }
 }
