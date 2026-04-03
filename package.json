@@ -1,8 +1,9 @@
 {
-  "type": "module",
+  "name": "langvid-server",
+  "version": "1.0.0",
+  "main": "index.js",
   "dependencies": {
-    "youtube-transcript": "^1.0.6",
-    "node-fetch": "^3.3.1",
-    "cors": "^2.8.5"
+    "node-fetch": "^2.6.7",
+    "youtube-transcript": "^1.2.1"
   }
 }
