@@ -1,4 +1,4 @@
-const TranscriptClient = require('youtube-transcript-api');
+const fetch = require('node-fetch');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -11,43 +11,40 @@ module.exports = async (req, res) => {
     if (!videoId) return res.status(400).json({ error: "videoId 필수" });
 
     try {
-        const ClientConstructor = TranscriptClient.default || TranscriptClient;
-        const client = new ClientConstructor();
+        // 1. 유튜브 페이지 소스 가져오기
+        const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+        });
+        const html = await response.text();
 
-        // 1. 기본 ready 대기
-        await client.ready;
+        // 2. 자막 데이터 URL 추출 (정규식 사용)
+        const captionsMatch = html.match(/"captionTracks":\[(.*?)]/);
+        if (!captionsMatch) throw new Error("자막 트랙을 찾을 수 없습니다. (CC가 꺼져있을 수 있음)");
 
-        // 2. [강력 조치] 초기화가 진짜 됐는지 루프를 돌며 확인 (최대 3초)
-        let attempts = 0;
-        while (!client.initialized && attempts < 10) {
-            await new Promise(resolve => setTimeout(resolve, 300)); // 0.3초씩 대기
-            attempts++;
-        }
+        const captionsJson = JSON.parse(`[${captionsMatch[1]}]`);
+        // 한국어(ko) 우선, 없으면 첫 번째 자막
+        const track = captionsJson.find(t => t.languageCode === 'ko') || captionsJson[0];
+        
+        // 3. 실제 자막 XML/JSON 데이터 요청
+        const transcriptRes = await fetch(`${track.baseUrl}&fmt=json3`);
+        const transcriptData = await transcriptRes.json();
 
-        // 3. 자막 가져오기 시도
-        const data = await client.getTranscript(videoId);
+        // 4. 포맷 정리
+        const result = transcriptData.events
+            .filter(e => e.segs)
+            .map(e => ({
+                start: e.tStartMs / 1000,
+                duration: (e.dDurationMs || 0) / 1000,
+                text: e.segs.map(s => s.utf8).join('')
+            }));
 
-        if (!data || !data.tracks || data.tracks.length === 0) {
-            return res.status(404).json({ error: "자막 없음" });
-        }
-
-        const rawTranscript = data.tracks[0].transcript;
-        const formattedTranscript = rawTranscript.map(item => ({
-            start: parseFloat(item.start),
-            duration: parseFloat(item.dur),
-            text: item.text
-        }));
-
-        return res.status(200).json(formattedTranscript);
+        return res.status(200).json(result);
 
     } catch (error) {
-        console.error("Critical Error:", error.message);
-        
         return res.status(500).json({ 
-            error: "자막 추출 실패", 
+            error: "자막 추출 최종 실패", 
             reason: error.message,
-            videoId: videoId,
-            tip: "잠시 후 새로고침(F5)을 한 번 더 해보세요."
+            tip: "유튜브가 이 서버를 차단했거나 자막이 없는 영상입니다."
         });
     }
 };
