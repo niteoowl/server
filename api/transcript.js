@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 
 module.exports = async (req, res) => {
+    // 1. CORS 설정 (브라우저에서 호출 가능하게)
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -11,16 +12,21 @@ module.exports = async (req, res) => {
     if (!videoId) return res.status(400).json({ error: "videoId 필수" });
 
     try {
-        // 1. 유튜브 페이지 소스 가져오기 (실제 브라우저처럼 보이게 헤더 강화)
+        // 2. 유튜브 페이지 소스 요청 (쿠키와 헤더 주입)
         const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
             headers: { 
+                // 중요: Vercel Settings -> Environment Variables에 넣은 YOUTUBE_COOKIE 사용
+                'Cookie': process.env.YOUTUBE_COOKIE || '',
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
             }
         });
+        
         const html = await response.text();
 
-        // 2. 여러 가지 패턴으로 자막 데이터 찾기 (더 강력해진 정규식)
+        // 3. 자막 데이터 주소(captionTracks) 추출
         let captionTracks = [];
         const regex = /"captionTracks":\s*(\[.*?\])/;
         const match = html.match(regex);
@@ -28,7 +34,7 @@ module.exports = async (req, res) => {
         if (match) {
             captionTracks = JSON.parse(match[1]);
         } else {
-            // 다른 패턴 시도: ytInitialPlayerResponse 객체 내부 뒤지기
+            // 패턴 2: 플레이어 응답 객체 내부 뒤지기
             const playerResponseMatch = html.match(/ytInitialPlayerResponse\s*=\s*({.+?});/);
             if (playerResponseMatch) {
                 const playerData = JSON.parse(playerResponseMatch[1]);
@@ -36,20 +42,19 @@ module.exports = async (req, res) => {
             }
         }
 
+        // 자막이 아예 없는 경우 에러 처리
         if (captionTracks.length === 0) {
-            throw new Error("자막 데이터를 찾을 수 없습니다. (영상에 CC 자막이 있는지 확인하세요)");
+            throw new Error("유튜브가 자막 정보를 숨겼거나 자막이 없는 영상입니다.");
         }
 
-        // 3. 한국어 자막 찾기 (없으면 첫 번째 자막)
-        const track = captionTracks.find(t => t.languageCode === 'ko') || 
-                      captionTracks.find(t => t.languageCode === 'en') || 
-                      captionTracks[0];
+        // 4. 한국어(ko) 우선 선택, 없으면 첫 번째 자막 사용
+        const track = captionTracks.find(t => t.languageCode === 'ko') || captionTracks[0];
         
-        // 4. 자막 데이터 URL 요청
+        // 5. 실제 자막 JSON 데이터 가져오기
         const transcriptRes = await fetch(`${track.baseUrl}&fmt=json3`);
         const transcriptData = await transcriptRes.json();
 
-        // 5. 데이터 가공
+        // 6. 클라이언트가 쓰기 좋게 포맷 가공
         const result = transcriptData.events
             .filter(e => e.segs)
             .map(e => ({
@@ -61,12 +66,11 @@ module.exports = async (req, res) => {
         return res.status(200).json(result);
 
     } catch (error) {
-        console.error("Critical Error:", error.message);
+        console.error("Final Error Log:", error.message);
         return res.status(500).json({ 
-            error: "자막 추출 실패", 
+            error: "자막 추출 최종 실패", 
             reason: error.message,
-            videoId: videoId,
-            tip: "영상 주소창에 'CC' 아이콘이 활성화되어 있는지 확인해 보세요!"
+            videoId: videoId
         });
     }
 };
